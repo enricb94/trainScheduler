@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Page Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- jQuery -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <!-- Bootstrap CDN-->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <!-- Firebase Reference -->
+    <script src="https://www.gstatic.com/firebasejs/5.8.1/firebase.js"></script>
+    
+</head>
+<style>
+    body{
+        background-image: url('background.jpg')
+    }
+</style>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header text-center">
+              <h1>Central Train Station</h1>
+              <p>The World's Most Transited Station</p>
+              <h2 id="time"></h2>
+            </div>
+
+            <div class="card-body">
+                <p>Train Schedule:</p>
+
+                <tr></tr>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Train Name</th>
+                            <th scope="col">Destination</th>
+                            <th scope="col">Frequency (min)</th>
+                            <th scope="col">Next Arrival</th>
+                            <th scope="col">Minutes Away</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <form>
+                        <div class="form-group">
+                            <label for="exampleInputName">Train Name</label>
+                            <input type="text" class="form-control" id="nameInput" placeholder="Enter Name"> 
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputDestination">Destination</label>
+                            <input type="text" class="form-control" id="destinationInput" placeholder="Destination">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">First Time of Departure (Military Time)</label>
+                            <input type="text" class="form-control" id="firsttrainInput" placeholder="Example: 1100 for (11:00)">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="exampleInputPassword1">Frequency (minutes)</label>
+                            <input type="number" class="form-control" id="frequencyInput" placeholder="Every 10 minutes">
+                        </div>
+                       
+                        <button id="submit" type="submit" class="btn btn-primary">Submit</button>
+                    </form>
+                </div> 
+            </div>
+        </div>
+
+        <script>
+  // Initialize Firebase
+  var config = {
+    apiKey: "AIzaSyDQzPNgjfkNVPmK-tsQQUyWZ8aIqEAYrMs",
+    authDomain: "train-7b403.firebaseapp.com",
+    databaseURL: "https://train-7b403.firebaseio.com",
+    projectId: "train-7b403",
+    storageBucket: "train-7b403.appspot.com",
+    messagingSenderId: "143429207382"
+  };
+  firebase.initializeApp(config);
+ 
+
+      database = firebase.database();
+      
+      //Capturing the Submit click.
+  
+      $("#submit").on("click", function(event){
+          
+          event.preventDefault();
+          
+          var name        = $("#nameInput").val().trim();
+          var destination = $("#destinationInput").val().trim();
+          var frequency   = $("#frequencyInput").val().trim();
+          var firstTrain  = $("#firsttrainInput").val().trim();
+          
+          //Add input data to an object.
+          var newTrain = {
+              name: name,
+              destination: destination,
+              firstTrain: firstTrain,
+              frequency: frequency
+          }
+
+          //Push object to firebase
+          database.ref().push(newTrain);
+  
+      });
+  
+      //Retrieving the data already on the firebase.
+      database.ref().on("child_added", function(childSnapshot) {    
+  
+      var fireData=childSnapshot.val();
+      var frequency = fireData.frequency;
+      var firstTrainTime = fireData.firstTrain;
+      
+//-------------------------------------------------------------------
+      //Convert current time to minutes.
+      var timeNow      = new Date()
+      var timeNowHr    = timeNow.getHours();
+      var timeNowMin   = timeNow.getMinutes();
+      var timeNowTotal = (timeNowHr*60)+timeNowMin;
+    
+      //timeNowTotal = current time in minutes.
+  
+      //The first train time is obtained as a string.
+      //Grab the hours and convert from string to numbers.
+      var hourOfFirstTrain = firstTrainTime[0] + firstTrainTime[1];
+          hourOfFirstTrain = parseInt(hourOfFirstTrain);
+      
+      //Do the same with the minutes.
+      var minutesOfFirstTrain = firstTrainTime[2] + firstTrainTime[3];
+          minutesOfFirstTrain = parseInt(minutesOfFirstTrain)
+
+      //Calculate first train time total minutes.
+      var firstTotal = (hourOfFirstTrain*60)+minutesOfFirstTrain ;
+      //firstTotal = first train time total in minutes.
+
+      //Calculate time difference between now and first train time.
+      var difference = timeNowTotal - firstTotal;
+
+      //Obtain the frequency from firebase and convert to numbers.
+      var freq = parseInt(frequency);
+
+      //Apply the modulus to obtain the time in minutes since the PAST train left the station.
+      var minutesSinceArrival = difference % freq; 
+    
+      //Substract frequency by the result to obtain the minutes until the NEXT train arrives.
+      var timeUntilArrival = freq - minutesSinceArrival;
+        
+
+      //Add the minutes until the next train to the actual time.
+      var newTime = timeNowTotal + timeUntilArrival
+
+      //If the total sum is greater than 1 day in minutes, then substract 1 day.
+      if (newTime >= 1440)
+      {
+          newTime -= 1440
+      }
+
+      //Math.floor allows you to round down at all times.
+      var newHour = Math.floor(newTime / 60);
+
+      //If the variable newTime is less than 60, modulus will just leave the time as it is.
+      var newMinutes = newTime % 60;
+
+      //Convert to the appropiate format.
+      var nextTrainArrival
+
+        if(newMinutes==0)
+        {
+          newMinutes = "00";
+        }
+        else if (newMinutes<10) 
+        {
+            newMinutes = "0" + newMinutes;
+        }
+
+        if (newHour > 11)
+        {
+            if (newHour != 12)
+            {
+                newHour = newHour - 12;
+            }
+
+        nextTrainArrival = newHour + ":" + newMinutes + " PM"; 
+        }
+
+        else if (newHour<=11) 
+        {
+            if(newHour == 0)
+            {
+                nextTrainArrival = "12:" + newMinutes + " AM";
+            }
+            else
+            {
+                nextTrainArrival = newHour + ":" + newMinutes + " AM";
+            }
+        }
+
+      $("tbody").append("<tr><td>"+fireData.name+"</td><td>"+fireData.destination+"</td><td>"+fireData.frequency+"</td><td>"+nextTrainArrival+"</td><td>"+timeUntilArrival+"</td>");
+
+        $("#nameInput").val('');
+        $("#destinationInput").val('');
+        $("#frequencyInput").val('');
+        $("#firsttrainInput").val('');
+      });
+  
+      </script>
+</body>
+</html>
